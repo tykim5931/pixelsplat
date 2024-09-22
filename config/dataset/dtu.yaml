@@ -1,0 +1,33 @@
+defaults:
+  - view_sampler: bounded
+
+name: dtu
+roots: [/root/youngju/datasets/DTU, /root/youngju/datasets/DTU_TEST]
+pair_filepath: src/dataset/dtu/dtu_pairs.txt
+split_filepath: [src/dataset/dtu/lists]
+make_baseline_1: false
+augment: true
+
+n_views: 10
+num_context_views: 3
+num_all_imgs: 49
+test_context_views: [23, 24, 33]
+test_target_views: [35, 25]
+single_view: false
+view_selection_type: random # best or random
+
+image_shape: [224, 224]
+original_image_shape: [128, 160]
+background_color: [0.0, 0.0, 0.0]
+cameras_are_circular: false
+
+baseline_epsilon: 1e-3
+max_fov: 100.0
+
+skip_bad_shape: true
+near: -1.
+far: -1.
+baseline_scale_bounds: true
+shuffle_val: true
+test_len: -1
+test_chunk_interval: 1

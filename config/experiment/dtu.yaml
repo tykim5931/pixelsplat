@@ -1,0 +1,23 @@
+# @package _global_
+
+defaults:
+  - override /dataset: dtu
+  - override /model/encoder: epipolar
+  - override /model/encoder/backbone: dino
+  - override /loss: [mse, lpips]
+
+wandb:
+  name: dtu
+  tags: [dtu_train_dtu_test, 128x160]
+
+dataset:
+  image_shape: [224, 224]
+  original_image_shape: [128, 160]
+  roots: [/root/youngju/datasets/DTU]
+
+data_loader:
+  train:
+    batch_size: 1
+
+trainer:
+  max_steps: 100_001
