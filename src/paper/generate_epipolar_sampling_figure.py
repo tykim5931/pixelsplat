@@ -43,7 +43,7 @@ def generate_epipolar_sampling_figure():
         SCENE,
         view_sampler_cfg,
         "re10k",
-        [Path("datasets/re10k")],
+        [Path("/mnt/nas3/youngju/re10k/re10k")],
         1e-6,
         180.0,
         False,

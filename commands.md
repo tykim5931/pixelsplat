@@ -37,4 +37,4 @@ python -m src.main +experiment=dtu wandb.mode=disabled mode=test data_loader.tra
 python -m src.main +experiment=dtu wandb.mode=disabled mode=test data_loader.train.batch_size=1 dataset.view_sampler.num_context_views=2 dataset.view_selection_type=random dataset.test_context_views=[23,25] dataset.test_target_views=[34,14,32] checkpointing.load=/root/youngju/pixelsplat/checkpoints/pixelsplat-dtu-3views.ckpt test.output_path=./test/pixelsplat-2views-dtu-noisy-015 test.noisy_pose=true test.noisy_level=0.15
 
 # noisy pose re10k (sigma 0.03)
-python -m src.main +experiment=re10k wandb.mode=disabled mode=test data_loader.train.batch_size=1 dataset.view_sampler.num_context_views=2 checkpointing.load=checkpoints/pixelsplat-re10k.ckpt test.output_path=./test/pixelsplat-2views-re10k-noisy-003 test.noisy_pose=true test.noisy_level=0.03
+python -m src.main +experiment=re10k wandb.mode=disabled mode=test data_loader.train.batch_size=1 checkpointing.load=checkpoints/pixelsplat-re10k.ckpt test.output_path=./test/pixelsplat-2views-re10k-noisy-003 test.noisy_pose=true test.noisy_level=0.03

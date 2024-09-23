@@ -217,5 +217,22 @@
             "justMyCode": true,
             "args": [],
         },
+        {
+            "name": "Evaluate noisy",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.main",
+            "args": [
+                "+experiment=re10k",
+                "wandb.mode=disabled",
+                "mode=test",
+                "data_loader.train.batch_size=1",
+                "checkpointing.load=checkpoints/pixelsplat-re10k.ckpt",
+                "test.output_path=./test/003",
+                "test.noisy_pose=true",
+                "test.noisy_level=0.03"
+            ],
+            "justMyCode": true
+        }
     ]
 }
