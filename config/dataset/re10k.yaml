@@ -7,6 +7,7 @@ make_baseline_1: true
 augment: true
 
 image_shape: [180, 320]
+original_image_shape: [180, 320]
 background_color: [0.0, 0.0, 0.0]
 cameras_are_circular: false
 
