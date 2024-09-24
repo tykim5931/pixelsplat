@@ -86,7 +86,11 @@ class DatasetRE10k(IterableDataset):
 
         for chunk_path in self.chunks:
             # Load the chunk.
-            chunk = torch.load(chunk_path)
+            try:
+                chunk = torch.load(chunk_path)
+            except Exception as e:
+                print(f"Failed to load {chunk_path}: {e}")
+                continue
 
             if self.cfg.overfit_to_scene is not None:
                 item = [x for x in chunk if x["key"] == self.cfg.overfit_to_scene]
