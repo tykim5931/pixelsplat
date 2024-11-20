@@ -117,7 +117,13 @@ class DatasetRE10k(IterableDataset):
                 # Skip the example if the field of view is too wide.
                 if (get_fov(intrinsics).rad2deg() > self.cfg.max_fov).any():
                     continue
-
+                
+                # restrict target indices to be too large
+                if len(target_indices) > 100:
+                    # downscale by selecting only 10 sliced indices
+                    values = torch.linspace(0, len(target_indices)-1, steps=10, dtype=torch.int64)
+                    target_indices = target_indices[values]   
+                    
                 # Load the images.
                 context_images = [
                     example["images"][index.item()] for index in context_indices
@@ -161,6 +167,8 @@ class DatasetRE10k(IterableDataset):
                         "image": context_images,
                         "near": self.get_bound("near", len(context_indices)) / scale,
                         "far": self.get_bound("far", len(context_indices)) / scale,
+                        "R": extrinsics[context_indices][:, :3, :3],
+                        "T": extrinsics[context_indices][:, :3, 3],
                         "index": context_indices,
                     },
                     "target": {
@@ -169,6 +177,8 @@ class DatasetRE10k(IterableDataset):
                         "image": target_images,
                         "near": self.get_bound("near", len(target_indices)) / scale,
                         "far": self.get_bound("far", len(target_indices)) / scale,
+                        "R": extrinsics[target_indices][:, :3, :3],
+                        "T": extrinsics[target_indices][:, :3, 3],
                         "index": target_indices,
                     },
                     "scene": scene,

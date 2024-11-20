@@ -44,25 +44,46 @@
             }
         },
         {
-            "name": "Test dtu",
+            "name": "Test dtu (pixelsplat)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.main",
+            "args": [
+                "+experiment=dtu",
+                "data_loader.train.num_workers=0", // for debugging
+                "data_loader.test.num_workers=0", // for debugging
+                "data_loader.val.num_workers=0", // for debugging
+                "checkpointing.load=/home/lucy/ssd/Codes/pixelsplat/checkpoints/pixelsplat-dtu-3views.ckpt",
+                "test.pred_pose_path=/mnt/nas4/youngju/ufosplat/ours/pred_mats_dtu_ours_large.pt",
+                "mode=test",
+                "test.output_path=test/mvsplat/dtu/pred-cam/small-baseline",
+                "dataset.view_sampler.num_context_views=3",
+                "dataset.test_context_views=[23,24,33]", // [34,14,32]
+                "dataset.test_target_views=[22,15,34]",
+                "test.compute_scores=true",
+                "dataset.make_baseline_1=false",
+                "dataset.view_selection_type=random",
+                // "dataset.single_view=true",
+                // "model.encoder.predict_only_canonical=true",
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Test re10k",
             "type": "debugpy",
             "request": "launch",
             "module": "src.main",
             "console": "integratedTerminal",
             "args": [
                 "wandb.mode=disabled",
-                "+experiment=dtu",
                 "mode=test",
-                "data_loader.train.num_workers=0", // for debugging
-                "data_loader.test.num_workers=0", // for debugging
-                "data_loader.val.num_workers=0", // for debugging
-                "checkpointing.load=/root/youngju/pixelsplat/outputs/pixelsplat-dtu-3views-final/checkpoints/epoch=28-step=100000.ckpt",
-                "test.output_path=./test/pixelsplat-3views-dtu",
-                // "dataset.view_sampler.num_context_views=3",
-                // "dataset.test_context_views=[23,25,33]",
-                // "dataset.test_target_views=[34,14,32]",
-                // "dataset/view_sampler=evaluation",
-            ],
+                "test.compute_scores=true",
+                "+experiment=re10k",
+                "dataset/view_sampler=evaluation",
+                "data_loader.train.batch_size=1",
+                "checkpointing.load=checkpoints/pixelsplat_re10k.ckpt",
+                "test.output_path=./test/gt",
+            ]
         },
         {
             "name": "Test Splatter",
@@ -160,7 +181,7 @@
             "justMyCode": true,
             "args": [
                 "+experiment=dtu",
-                "checkpointing.load=checkpoints/dtu_w_gaussian_depth_0217.ckpt"
+                "checkpointing.load=checkpoints/mvsplat_dtu_3_140000_final.ckpt"
             ]
         },
         {
@@ -172,7 +193,7 @@
             "justMyCode": true,
             "args": [
                 "+experiment=dtu",
-                "checkpointing.load=checkpoints/dtu.ckpt"
+                "checkpointing.load=checkpoints/mvsplat_dtu_3_140000_final.ckpt"
             ]
         },
         {
@@ -231,6 +252,71 @@
                 "test.output_path=./test/003",
                 "test.noisy_pose=true",
                 "test.noisy_level=0.03"
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Evaluate predpose - DTU",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.main",
+            "args": [
+                "+experiment=dtu",
+                "wandb.mode=disabled",
+                "mode=test",
+                "data_loader.train.batch_size=1",
+                "checkpointing.load=checkpoints/pixelsplat-dtu-3views.ckpt",
+                "test.output_path=/home/lucy/ssd/ufo_outputs/dtu/pixelsplat_pred_ours_rebuttal",
+                "test.pred_pose_path=/home/lucy/ssd/ufo_outputs/pred_cams/pred_mats_dtu_ours_23-24-33.pt",
+                "dataset/view_sampler=evaluation",
+                "dataset.make_baseline_1=true",
+                "dataset.view_sampler.num_context_views=3",
+                "dataset.test_context_views=[23,24,33]",
+                "dataset.test_target_views=[22,15,34]",
+                "trainer.num_sanity_val_steps=1",
+                "dataset.image_shape=[224,224]",
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Evaluate predpose - RE10K",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.main",
+            "args": [
+                "+experiment=re10k",
+                "wandb.mode=disabled",
+                "mode=test",
+                "data_loader.train.batch_size=1",
+                "checkpointing.load=checkpoints/pixelsplat-re10k.ckpt",
+                "test.output_path=/home/lucy/ssd/ufo_outputs/re10k/pixelsplat_pred_dust3r",
+                "test.pred_pose_path=/home/lucy/ssd/ufo_outputs/pred_cams/pred_mats_re10k_dust3r.pt",
+                "dataset/view_sampler=evaluation",
+                "dataset.view_sampler.num_context_views=2",
+                "trainer.num_sanity_val_steps=1",
+                "dataset.image_shape=[224,224]",
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Test acid",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.main",
+            "args": [
+                "+experiment=acid",
+                "wandb.mode=disabled",
+                "mode=test",
+                "data_loader.train.batch_size=1",
+                "checkpointing.load=checkpoints/pixelsplat-re10k.ckpt",
+                "test.output_path=/home/lucy/ssd/ufo_outputs/acid/pixelsplat_001",
+                // "test.pred_pose_path=/home/lucy/ssd/ufo_outputs/pred_cams/pred_mats_re10k_dust3r.pt",
+                "dataset/view_sampler=evaluation",
+                "dataset.view_sampler.num_context_views=2",
+                "trainer.num_sanity_val_steps=1",
+                "dataset.image_shape=[224,224]",
+                "test.noisy_pose=true",
+                "test.noisy_level=0.01",
             ],
             "justMyCode": true
         }

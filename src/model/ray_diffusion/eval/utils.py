@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from pytorch3d.renderer import PerspectiveCameras
+from pytorch3d.renderer import FoVPerspectiveCameras
 from einops import rearrange
 
 def full_scene_scale(batch):
@@ -15,10 +15,7 @@ def full_scene_scale(batch):
     Returns:
         float: scale of the scene.
     """
-    all_Rs = batch['extrinsics'][:, :, :3, :3]
-    all_Ts = batch['extrinsics'][:, :, :3, 3]
-     
-    cameras = PerspectiveCameras(R=rearrange(all_Rs, 'b v x y -> (b v) x y'), T=rearrange(all_Ts, 'b v x -> (b v) x'))
+    cameras = FoVPerspectiveCameras(R=rearrange(batch["R"], 'b v x y -> (b v) x y'), T=rearrange(batch["T"], 'b v x -> (b v) x'))
     cc = cameras.get_camera_center()
     centroid = torch.mean(cc, dim=0)
 
@@ -91,14 +88,31 @@ def compute_optimal_alignment(A, B):
 
 
 def compute_camera_center_error(R_pred, T_pred, R_gt, T_gt, gt_scene_scale):
-    cameras_gt = PerspectiveCameras(R=R_gt, T=T_gt)
+    cameras_gt = FoVPerspectiveCameras(R=R_gt, T=T_gt, device='cuda')
     cc_gt = cameras_gt.get_camera_center()
-    cameras_pred = PerspectiveCameras(R=R_pred, T=T_pred)
+    cameras_pred = FoVPerspectiveCameras(R=R_pred, T=T_pred, device='cuda')
     cc_pred = cameras_pred.get_camera_center()
 
     # A_hat, _, _, _ = compute_optimal_alignment(cc_gt, cc_pred)
-    A_hat = None
-    norm = torch.linalg.norm(cc_gt - cc_pred, dim=1) / gt_scene_scale
+    A_hat = cc_pred
+    norm = torch.linalg.norm(cc_gt - A_hat, dim=1) / gt_scene_scale
 
     norms = np.ndarray.tolist(norm.detach().cpu().numpy())
     return norms, A_hat
+
+
+def compute_geodesic_distance_from_two_matrices(m1, m2):
+    batch=m1.shape[0]
+    m = torch.bmm(m1, m2.transpose(1,2)) #batch*3*3
+    
+    cos = (  m[:,0,0] + m[:,1,1] + m[:,2,2] - 1 )/2
+    cos = torch.min(cos, torch.autograd.Variable(torch.ones(batch).to(m1.device)) )
+    cos = torch.max(cos, torch.autograd.Variable(torch.ones(batch).to(m1.device))*-1 )
+    
+    
+    theta = torch.acos(cos)
+    
+    #theta = torch.min(theta, 2*np.pi - theta)
+   
+    
+    return theta

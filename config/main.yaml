@@ -51,6 +51,7 @@ test:
   output_path: outputs/test
   compute_scores: true
   noisy_pose: false
+  pred_pose_path: None
   noisy_level: 0.05
   eval_time_skip_steps: 0
   save_image: true

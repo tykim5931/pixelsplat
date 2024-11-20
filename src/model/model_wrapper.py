@@ -42,7 +42,22 @@ from .encoder.visualization.encoder_visualizer import EncoderVisualizer
 from src.model.cameras.noisy_pose_generator import initialize_noisy_poses
 from src.model.ray_diffusion.eval.utils import full_scene_scale
 
+from src.model.ray_diffusion.eval.utils import (
+    compute_angular_error_batch,
+    compute_camera_center_error,
+    full_scene_scale,
+    n_to_np_rotations,
+    compute_geodesic_distance_from_two_matrices,
+)
 
+CHERRY_PICKED = ['2b1d7fac3c4aa643']
+def depth_map(result):
+        near = result[result >= 0][:16_000_000].quantile(0.01).log()
+        far = result.view(-1)[:16_000_000].quantile(0.99).log()
+        result = result.log()
+        result = 1 - (result - near) / (far - near)
+        return apply_color_map_to_image(result, "turbo")
+        
 @dataclass
 class OptimizerCfg:
     lr: float
@@ -55,6 +70,7 @@ class TestCfg:
     compute_scores: bool
     eval_time_skip_steps: int
     noisy_pose: bool
+    pred_pose_path: str | None
     noisy_level: float
     save_image: bool
     
@@ -118,6 +134,16 @@ class ModelWrapper(LightningModule):
         if self.test_cfg.compute_scores:
             self.test_step_outputs = {}
             self.time_skip_steps_dict = {"encoder": 0, "decoder": 0}
+
+        if self.test_cfg.pred_pose_path is not None:        # TODO PRED POSE
+            try:
+                self.pred_poses = torch.load(self.test_cfg.pred_pose_path)
+            except:
+                self.pred_poses = None
+                print("No predicted poses found")
+        else:
+            self.pred_poses = None
+
             
 
     def training_step(self, batch, batch_idx):
@@ -168,6 +194,10 @@ class ModelWrapper(LightningModule):
 
     def test_step(self, batch, batch_idx):
         batch: BatchedExample = self.data_shim(batch)
+ 
+        gt_extrinsics = batch["context"]["extrinsics"]
+        R_gt = rearrange(gt_extrinsics, 'b v x y -> (b v) x y')[:,:3,:3]
+        T_gt = rearrange(gt_extrinsics, 'b v x y -> (b v) x y')[:,:3,3]
 
         if self.test_cfg.noisy_pose:
             n_context_views = batch["context"]["extrinsics"].shape[1]
@@ -178,6 +208,10 @@ class ModelWrapper(LightningModule):
             gt_context_views = batch["context"]["extrinsics"][..., :3, :4]
             noisy_context_views, error_R, error_T = initialize_noisy_poses(gt_context_views, noise_level=self.test_cfg.noisy_level, gt_scene_scale=gt_scene_scale)
             
+            # # #! FOR DEPTH CHEERY RENDERING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+            # if batch["scene"][0] not in CHERRY_PICKED:
+            #     return
+            # # #! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             print("mean Rotation error angle:", np.mean(error_R))
             print("mean Translation error:", np.mean(error_T))
             
@@ -194,7 +228,15 @@ class ModelWrapper(LightningModule):
             #UPDATE poses to noisy poses
             batch["context"]["extrinsics"] = noisy_context_views[:, :n_context_views]
             # batch["target"]["extrinsics"] = all_noisy_poses[:, n_context_views:]
-            
+
+        #! USE PRED POSES
+        if self.pred_poses is not None:
+            scene = batch["scene"][0]
+            if scene not in self.pred_poses:
+                print(f"Scene {scene} not in pred_poses")
+                return
+            batch['context']['extrinsics'] = self.pred_poses[scene].unsqueeze(0).cuda().float()
+
         b, v, _, h, w = batch["target"]["image"].shape
         assert b == 1
         if batch_idx % 100 == 0:
@@ -215,7 +257,7 @@ class ModelWrapper(LightningModule):
                 batch["target"]["near"],
                 batch["target"]["far"],
                 (h, w),
-                depth_mode=None,
+                depth_mode='depth',
             )
 
         (scene,) = batch["scene"]
@@ -228,9 +270,19 @@ class ModelWrapper(LightningModule):
         if self.test_cfg.save_image:
             for index, color in zip(batch["target"]["index"][0], images_prob):
                 save_image(color, path / scene / f"color/{index:0>6}.png")
+            for index, color in zip(batch["target"]["index"][0], rgb_gt):
+                save_image(color, path / scene / f"tgt_gt/{index:0>6}.png")
+            for index, color in zip(batch["context"]["index"][0],  batch["context"]["image"][0]):
+                save_image(color, path / scene / f"ctxt_gt/{index:0>6}.png")
+            #! FOR DEPTH CHEERY RENDERING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            color_depth = depth_map(output.depth[0])
+            for index, depth in zip(batch["target"]["index"][0], color_depth):
+                save_image(depth, path / scene / f"depth/{index:0>6}.png")
+            #! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         # compute scores
         if self.test_cfg.compute_scores:
+            #! IMAGE SCORES
             if batch_idx < self.test_cfg.eval_time_skip_steps:
                 self.time_skip_steps_dict["encoder"] += 1
                 self.time_skip_steps_dict["decoder"] += v
@@ -242,6 +294,11 @@ class ModelWrapper(LightningModule):
                 self.test_step_outputs[f"ssim"] = []
             if f"lpips" not in self.test_step_outputs:
                 self.test_step_outputs[f"lpips"] = []
+                
+            if f"rotation_angle" not in self.test_step_outputs:
+                self.test_step_outputs[f"rotation_angle"] = []
+            if f"translation_angle" not in self.test_step_outputs:
+                self.test_step_outputs[f"translation_angle"] = []
 
             self.test_step_outputs[f"psnr"].append(
                 compute_psnr(rgb_gt, rgb).mean().item()
@@ -252,6 +309,45 @@ class ModelWrapper(LightningModule):
             self.test_step_outputs[f"lpips"].append(
                 compute_lpips(rgb_gt, rgb).mean().item()
             )
+
+            #! TIME SCORES
+            
+            pred_mats = rearrange(batch['context']['extrinsics'], 'b v x y -> (b v) x y')
+            
+            # R_gt = rearrange(batch['context']['R'], 'b v x y -> (b v) x y')
+            # T_gt = rearrange(batch['context']['T'], 'b v x -> (b v) x')
+            
+            #! CoPoNeRF Style evaluation
+            norm_pred = pred_mats[:,:3,3][1:] / torch.linalg.norm(pred_mats[:,:3,3][1:], dim = -1).unsqueeze(-1) + 1e-6
+            norm_gt =  T_gt[1:] / torch.linalg.norm(T_gt[1:], dim =-1).unsqueeze(-1)
+            if len(norm_pred) == 2: #DTU 3 views
+                cosine_similarity_0 = torch.dot(norm_pred[0], norm_gt[0])
+                cosine_similarity_1 = torch.dot(norm_pred[1], norm_gt[1])
+                angle_degree_1 = torch.arccos(torch.clip(cosine_similarity_0, -1.0,1.0)) * 180 / np.pi
+                angle_degree_2 = torch.arccos(torch.clip(cosine_similarity_1, -1.0,1.0)) * 180 / np.pi
+                avg_angle_degree = (angle_degree_1 + angle_degree_2) / 2
+                
+                geodesic = compute_geodesic_distance_from_two_matrices(pred_mats[..., :3, :3][1:], R_gt[..., :3, :3][1:]) * 180 / np.pi
+                self.test_step_outputs[f"rotation_angle"].append(geodesic.mean().item())
+                self.test_step_outputs[f"translation_angle"].append(avg_angle_degree.item())
+            else: #2views
+                cosine_similarity = torch.dot(norm_pred[0], norm_gt[0])
+                angle_degree = torch.arccos(torch.clip(cosine_similarity, -1.0,1.0)) * 180 / np.pi
+                avg_angle_degree = angle_degree
+
+                geodesic = compute_geodesic_distance_from_two_matrices(pred_mats[..., :3, :3][1:], R_gt[..., :3, :3][1:]) * 180 / np.pi
+                self.test_step_outputs[f"rotation_angle"].append(geodesic.mean().item())
+                self.test_step_outputs[f"translation_angle"].append(avg_angle_degree.item())
+        
+            print("Rotation:", geodesic, "translation_angle:", avg_angle_degree)
+            print("Rotation error so far:", np.mean(self.test_step_outputs[f"rotation_angle"]), 'Translation_angle so far:', np.mean(self.test_step_outputs[f"translation_angle"]))
+            
+            # print psnr
+            print("scene: ", scene, end=' ')
+            print(f"PSNR: {self.test_step_outputs[f'psnr'][-1]}, SSIM: {self.test_step_outputs[f'ssim'][-1]}, LPIPS: {self.test_step_outputs[f'lpips'][-1]}", end=' ')
+            print("PSNR_so_far: ", np.mean(self.test_step_outputs[f'psnr']))
+            
+            
 
     def on_test_end(self) -> None:
         name = get_cfg()["wandb"]["name"]

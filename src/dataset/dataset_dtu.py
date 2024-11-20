@@ -288,10 +288,8 @@ class DatasetDTU(IterableDataset):
                 new_c2ws.append(c2w)
                 
                 new_qs.append(mat2quat(w2c[:3, :3]))
-                new_rs.append(w2c[:3, :3])
-                new_ts.append(w2c[:3, 3])
-                
-                
+                new_rs.append(c2w[:3, :3].copy())
+                new_ts.append(c2w[:3, 3].copy())
                 
                 dist = np.sqrt(np.sum(camera_o ** 2))
                 near = dist - 1 if dist > 1 else 0.1

@@ -5,7 +5,7 @@ name: dtu
 roots: [/root/youngju/datasets/DTU, /root/youngju/datasets/DTU_TEST]
 pair_filepath: src/dataset/dtu/dtu_pairs.txt
 split_filepath: [src/dataset/dtu/lists]
-make_baseline_1: false
+make_baseline_1: true
 augment: true
 
 n_views: 10

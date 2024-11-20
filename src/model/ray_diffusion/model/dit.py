@@ -127,10 +127,9 @@ class DiTCfg:
     hidden_size: int
     max_num_images: int
     P: int
-    num_patches_x: int
-    num_patches_y: int
     num_heads: int
     mlp_ratio: float
+    pose_embedding: bool
 
 class DiT(nn.Module):
     """
@@ -152,6 +151,9 @@ class DiT(nn.Module):
         self.P = cfg.P
         self.mlp_ratio = cfg.mlp_ratio
 
+        cfg.num_patches_x = cfg.width
+        cfg.num_patches_y = cfg.width
+        
         self.x_embedder = PatchEmbed(
             img_size=self.width,
             patch_size=self.P,

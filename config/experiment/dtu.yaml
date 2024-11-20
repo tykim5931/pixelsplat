@@ -13,7 +13,7 @@ wandb:
 dataset:
   image_shape: [224, 224]
   original_image_shape: [128, 160]
-  roots: [/root/youngju/datasets/DTU]
+  roots: [/home/lucy/ssd/datasets/DTU]
 
 data_loader:
   train:
